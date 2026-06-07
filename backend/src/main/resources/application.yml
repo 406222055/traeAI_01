@@ -1,0 +1,22 @@
+server:
+  port: 3001
+
+spring:
+  datasource:
+    url: jdbc:sqlite:${app.database.path:./data/dev.db}
+    driver-class-name: org.sqlite.JDBC
+  jpa:
+    database-platform: org.sqlite.hibernate.dialect.SQLiteDialect
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: UTC
+
+app:
+  jwt-secret: contractor-control-platform-dev-secret

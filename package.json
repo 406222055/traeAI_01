@@ -1,0 +1,15 @@
+{
+  "name": "contractor-control-platform",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev:web": "pnpm --dir frontend dev",
+    "dev:api": "mvn -f backend/pom.xml spring-boot:run",
+    "build:web": "pnpm --dir frontend build",
+    "build:api": "mvn -f backend/pom.xml test package",
+    "build": "pnpm --dir frontend build && mvn -f backend/pom.xml test package",
+    "typecheck": "pnpm --dir frontend typecheck",
+    "db:setup": "mvn -f backend/pom.xml test"
+  }
+}
