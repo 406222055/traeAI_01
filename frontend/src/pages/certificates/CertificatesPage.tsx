@@ -1,14 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button, Card, Col, Drawer, Form, Input, Popconfirm, Row, Select, Space, Table, Tag, Typography, message } from 'antd';
 import type { PersonnelCertificate, Project, Vendor, PersonnelCertificateStatus } from '../../shared';
-import { PERSONNEL_CERTIFICATE_STATUSES, PERSONNEL_CERTIFICATE_TYPES } from '../../shared';
+import { PERSONNEL_CERTIFICATE_TYPES } from '../../shared';
 import {
   createPersonnelCertificate,
   deletePersonnelCertificate,
   fetchPersonnelCertificates,
   updatePersonnelCertificate,
 } from '../../services/certificates';
-import { fetchExpiringAlerts } from '../../services/alerts';
 import { fetchProjects } from '../../services/projects';
 import { fetchVendors } from '../../services/vendors';
 
@@ -30,7 +29,7 @@ const statusLabel = (status: PersonnelCertificateStatus) => {
     case 'active':
       return '有效';
     case 'expiring_soon':
-      return '即将到期';
+      return '即将到期(30天内)';
     case 'expired':
       return '已过期';
     default:
@@ -38,25 +37,22 @@ const statusLabel = (status: PersonnelCertificateStatus) => {
   }
 };
 
-const certificateTypeLabel = (type: string) => {
-  const map: Record<string, string> = {
-    safety_operation: '安全生产',
-    special_operation: '特种作业',
-    electrician: '电工证',
-    welder: '焊工证',
-    elevator: '电梯作业',
-    crane: '起重机作业',
-    scaffold: '架子工',
-    high_altitude: '高处作业',
-    other: '其他',
-  };
-  return map[type] || type;
+const CERT_TYPE_LABEL: Record<string, string> = {
+  safety_operation: '安全生产',
+  special_operation: '特种作业',
+  electrician: '电工证',
+  welder: '焊工证',
+  elevator: '电梯作业',
+  crane: '起重机作业',
+  scaffold: '架子工',
+  high_altitude: '高处作业',
+  other: '其他',
 };
+
+const certificateTypeLabel = (type: string) => CERT_TYPE_LABEL[type] || type;
 
 export function CertificatesPage() {
   const [items, setItems] = useState<PersonnelCertificate[]>([]);
-  const [expiring7, setExpiring7] = useState<PersonnelCertificate[]>([]);
-  const [expiring30, setExpiring30] = useState<PersonnelCertificate[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [open, setOpen] = useState(false);
@@ -65,15 +61,12 @@ export function CertificatesPage() {
 
   const load = async () => {
     try {
-      const [list, alerts, vendorList, projectList] = await Promise.all([
+      const [list, vendorList, projectList] = await Promise.all([
         fetchPersonnelCertificates(),
-        fetchExpiringAlerts(),
         fetchVendors(),
         fetchProjects(),
       ]);
       setItems(list);
-      setExpiring7(alerts.personnelWithin7Days || []);
-      setExpiring30(alerts.personnelWithin30Days || []);
       setVendors(vendorList);
       setProjects(projectList);
     } catch (error) {
@@ -85,42 +78,74 @@ export function CertificatesPage() {
     void load();
   }, []);
 
+  const expired = useMemo(() => items.filter((c) => c.status === 'expired'), [items]);
+  const expiringSoon = useMemo(() => items.filter((c) => c.status === 'expiring_soon'), [items]);
+
   return (
     <Row gutter={[16, 16]}>
       <Col span={12}>
-        <Card title="7 天内到期证照">
-          <Table
-            rowKey="id"
-            pagination={false}
-            size="small"
-            dataSource={expiring7}
-            columns={[
-              { title: '人员姓名', dataIndex: 'personnelName' },
-              { title: '证照类型', dataIndex: 'certificateType', render: (v: string) => certificateTypeLabel(v) },
-              { title: '证照编号', dataIndex: 'certificateNo' },
-              { title: '服务商', dataIndex: ['vendor', 'name'] },
-              { title: '到期日期', dataIndex: 'expiryDate' },
-            ]}
-          />
+        <Card
+          title={
+            <Space>
+              <Typography.Text strong type="danger">
+                已过期证照
+              </Typography.Text>
+              <Tag color="red">{expired.length}</Tag>
+            </Space>
+          }
+          style={{ borderColor: '#ffccc7' }}
+        >
+          {expired.length === 0 ? (
+            <Typography.Text type="secondary">暂无过期证照，保持良好！</Typography.Text>
+          ) : (
+            <Table
+              rowKey="id"
+              pagination={false}
+              size="small"
+              dataSource={expired}
+              columns={[
+                { title: '人员姓名', dataIndex: 'personnelName' },
+                { title: '证照类型', dataIndex: 'certificateType', render: (v: string) => certificateTypeLabel(v) },
+                { title: '证照编号', dataIndex: 'certificateNo' },
+                { title: '服务商', dataIndex: ['vendor', 'name'] },
+                { title: '到期日期', dataIndex: 'expiryDate' },
+              ]}
+            />
+          )}
         </Card>
       </Col>
       <Col span={12}>
-        <Card title="30 天内到期证照">
-          <Table
-            rowKey="id"
-            pagination={false}
-            size="small"
-            dataSource={expiring30}
-            columns={[
-              { title: '人员姓名', dataIndex: 'personnelName' },
-              { title: '证照类型', dataIndex: 'certificateType', render: (v: string) => certificateTypeLabel(v) },
-              { title: '证照编号', dataIndex: 'certificateNo' },
-              { title: '服务商', dataIndex: ['vendor', 'name'] },
-              { title: '到期日期', dataIndex: 'expiryDate' },
-            ]}
-          />
+        <Card
+          title={
+            <Space>
+              <Typography.Text strong type="warning">
+                即将到期（30 天内）
+              </Typography.Text>
+              <Tag color="orange">{expiringSoon.length}</Tag>
+            </Space>
+          }
+          style={{ borderColor: '#ffe7ba' }}
+        >
+          {expiringSoon.length === 0 ? (
+            <Typography.Text type="secondary">暂无即将到期证照</Typography.Text>
+          ) : (
+            <Table
+              rowKey="id"
+              pagination={false}
+              size="small"
+              dataSource={expiringSoon}
+              columns={[
+                { title: '人员姓名', dataIndex: 'personnelName' },
+                { title: '证照类型', dataIndex: 'certificateType', render: (v: string) => certificateTypeLabel(v) },
+                { title: '证照编号', dataIndex: 'certificateNo' },
+                { title: '服务商', dataIndex: ['vendor', 'name'] },
+                { title: '到期日期', dataIndex: 'expiryDate' },
+              ]}
+            />
+          )}
         </Card>
       </Col>
+
       <Col span={24}>
         <Card
           title="外协人员证照管理"
@@ -130,7 +155,7 @@ export function CertificatesPage() {
               onClick={() => {
                 setEditing(null);
                 form.resetFields();
-                form.setFieldsValue({ status: 'active', certificateType: 'safety_operation' });
+                form.setFieldsValue({ certificateType: 'safety_operation' });
                 setOpen(true);
               }}
             >
@@ -139,7 +164,7 @@ export function CertificatesPage() {
           }
         >
           <Typography.Paragraph type="secondary">
-            维护外协人员证照类型、编号、有效期等信息，系统在到期前 30 天自动标记为"即将到期"，过期后标记为"已过期"。
+            系统根据证照有效期自动计算状态：距到期 30 天内标记为"即将到期"，超过有效期标记为"已过期"。准入批准时若存在过期证照将被自动拦截。
           </Typography.Paragraph>
           <Table
             rowKey="id"
@@ -230,7 +255,10 @@ export function CertificatesPage() {
           </Form.Item>
           <Form.Item label="证照类型" name="certificateType" rules={[{ required: true }]}>
             <Select
-              options={PERSONNEL_CERTIFICATE_TYPES.map((value) => ({ label: certificateTypeLabel(value), value }))}
+              options={PERSONNEL_CERTIFICATE_TYPES.map((value) => ({
+                label: certificateTypeLabel(value),
+                value,
+              }))}
             />
           </Form.Item>
           <Form.Item label="证照编号" name="certificateNo" rules={[{ required: true }]}>
@@ -242,17 +270,12 @@ export function CertificatesPage() {
           <Form.Item label="到期日期" name="expiryDate" rules={[{ required: true }]}>
             <Input placeholder="2027-01-01" />
           </Form.Item>
-          <Form.Item label="状态" name="status" rules={[{ required: true }]}>
-            <Select
-              options={PERSONNEL_CERTIFICATE_STATUSES.map((value) => ({
-                label: statusLabel(value),
-                value,
-              }))}
-            />
-          </Form.Item>
           <Form.Item label="备注" name="remark">
             <Input.TextArea rows={4} />
           </Form.Item>
+          <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
+            状态由系统根据"到期日期"自动计算，无需手动设置。
+          </Typography.Paragraph>
           <Button type="primary" htmlType="submit" block>
             保存
           </Button>

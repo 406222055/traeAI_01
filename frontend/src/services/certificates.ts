@@ -10,7 +10,6 @@ export interface PersonnelCertificatePayload {
   certificateNo: string;
   issueDate: string;
   expiryDate: string;
-  status: string;
   remark?: string;
 }
 

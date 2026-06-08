@@ -9,6 +9,7 @@ import com.contractorcontrol.api.entity.VendorEntity;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -23,6 +24,23 @@ public final class ApiSerializers {
 
   public static String formatInstant(Instant instant) {
     return instant == null ? null : ISO_FORMATTER.format(instant);
+  }
+
+  public static final int PERSONNEL_CERT_EXPIRING_SOON_DAYS = 30;
+
+  public static String computePersonnelCertificateStatus(Instant expiryDate) {
+    if (expiryDate == null) {
+      return "expired";
+    }
+    Instant now = Instant.now();
+    if (expiryDate.isBefore(now)) {
+      return "expired";
+    }
+    Instant threshold = now.plus(PERSONNEL_CERT_EXPIRING_SOON_DAYS, ChronoUnit.DAYS);
+    if (!expiryDate.isAfter(threshold)) {
+      return "expiring_soon";
+    }
+    return "active";
   }
 
   public static Map<String, Object> serializeUser(UserEntity user) {
@@ -107,7 +125,7 @@ public final class ApiSerializers {
     data.put("certificateNo", cert.getCertificateNo());
     data.put("issueDate", formatInstant(cert.getIssueDate()));
     data.put("expiryDate", formatInstant(cert.getExpiryDate()));
-    data.put("status", cert.getStatus());
+    data.put("status", computePersonnelCertificateStatus(cert.getExpiryDate()));
     data.put("remark", cert.getRemark());
     data.put("createdAt", formatInstant(cert.getCreatedAt()));
     data.put("vendor", serializeVendor(cert.getVendor()));

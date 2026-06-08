@@ -1,9 +1,11 @@
 package com.contractorcontrol.api.controller;
 
 import com.contractorcontrol.api.entity.AdmissionEntity;
+import com.contractorcontrol.api.entity.PersonnelCertificateEntity;
 import com.contractorcontrol.api.entity.ProjectEntity;
 import com.contractorcontrol.api.entity.VendorEntity;
 import com.contractorcontrol.api.repository.AdmissionRepository;
+import com.contractorcontrol.api.repository.PersonnelCertificateRepository;
 import com.contractorcontrol.api.repository.ProjectRepository;
 import com.contractorcontrol.api.repository.VendorRepository;
 import com.contractorcontrol.api.security.CurrentUser;
@@ -36,14 +38,17 @@ public class AdmissionController {
   private final AdmissionRepository admissionRepository;
   private final VendorRepository vendorRepository;
   private final ProjectRepository projectRepository;
+  private final PersonnelCertificateRepository personnelCertificateRepository;
 
   public AdmissionController(
       AdmissionRepository admissionRepository,
       VendorRepository vendorRepository,
-      ProjectRepository projectRepository) {
+      ProjectRepository projectRepository,
+      PersonnelCertificateRepository personnelCertificateRepository) {
     this.admissionRepository = admissionRepository;
     this.vendorRepository = vendorRepository;
     this.projectRepository = projectRepository;
+    this.personnelCertificateRepository = personnelCertificateRepository;
   }
 
   @GetMapping
@@ -102,11 +107,36 @@ public class AdmissionController {
       throw new IllegalArgumentException("审核结果不能为 pending");
     }
     AdmissionEntity admission = admissionRepository.findById(id).orElseThrow(() -> new NoSuchElementException("准入申请不存在"));
+
+    if ("approved".equals(status)) {
+      validateNoExpiredCertificates(admission.getVendor().getId(), admission.getProject().getId());
+    }
+
     CurrentUser currentUser = (CurrentUser) authentication.getPrincipal();
     admission.setStatus(status);
     admission.setReviewComment(ValidationUtils.assertOptionalString(payload.get("reviewComment")));
     admission.setReviewedBy(currentUser.getUser().getName());
     admission.setReviewedAt(Instant.now());
     return ApiSerializers.serializeAdmission(admissionRepository.save(admission));
+  }
+
+  private void validateNoExpiredCertificates(String vendorId, String projectId) {
+    Specification<PersonnelCertificateEntity> spec = Specification.where(null);
+    spec = spec.and((root, query, cb) -> cb.equal(root.get("vendor").get("id"), vendorId));
+    spec = spec.and((root, query, cb) -> cb.or(
+        cb.isNull(root.get("project")),
+        cb.equal(root.get("project").get("id"), projectId)));
+
+    List<PersonnelCertificateEntity> certs = personnelCertificateRepository.findAll(spec);
+    List<String> expiredDetails = certs.stream()
+        .filter(cert -> "expired".equals(ApiSerializers.computePersonnelCertificateStatus(cert.getExpiryDate())))
+        .map(cert -> String.format("人员[%s] 证照编号[%s]", cert.getPersonnelName(), cert.getCertificateNo()))
+        .collect(Collectors.toList());
+
+    if (!expiredDetails.isEmpty()) {
+      throw new IllegalArgumentException(
+          "准入批准被拦截：该服务商存在 " + expiredDetails.size() + " 个过期人员证照。"
+              + String.join("；", expiredDetails));
+    }
   }
 }

@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
@@ -60,9 +61,6 @@ public class PersonnelCertificateController {
     if (projectId != null && !projectId.isEmpty()) {
       specification = specification.and((root, query, cb) -> cb.equal(root.get("project").get("id"), projectId));
     }
-    if (status != null && !status.isEmpty()) {
-      specification = specification.and((root, query, cb) -> cb.equal(root.get("status"), status));
-    }
     if (certificateType != null && !certificateType.isEmpty()) {
       specification = specification.and((root, query, cb) -> cb.equal(root.get("certificateType"), certificateType));
     }
@@ -73,10 +71,13 @@ public class PersonnelCertificateController {
           cb.like(root.get("certificateNo"), like),
           cb.like(root.get("remark"), like)));
     }
-    return certificateRepository.findAll(specification, Sort.by(Sort.Direction.ASC, "expiryDate"))
+    Stream<Map<String, Object>> stream = certificateRepository.findAll(specification, Sort.by(Sort.Direction.ASC, "expiryDate"))
         .stream()
-        .map(ApiSerializers::serializePersonnelCertificate)
-        .collect(Collectors.toList());
+        .map(ApiSerializers::serializePersonnelCertificate);
+    if (status != null && !status.isEmpty() && ApiConstants.PERSONNEL_CERTIFICATE_STATUSES.contains(status)) {
+      stream = stream.filter(item -> status.equals(item.get("status")));
+    }
+    return stream.collect(Collectors.toList());
   }
 
   @GetMapping("/{id}")
@@ -120,6 +121,12 @@ public class PersonnelCertificateController {
           .orElseThrow(() -> new IllegalArgumentException("Invalid projectId"));
     }
 
+    Instant issueDate = ValidationUtils.assertDate(payload.get("issueDate"), "issueDate");
+    Instant expiryDate = ValidationUtils.assertDate(payload.get("expiryDate"), "expiryDate");
+    if (!expiryDate.isAfter(issueDate)) {
+      throw new IllegalArgumentException("到期日期必须晚于签发日期");
+    }
+
     if (create) {
       cert.setId(UUID.randomUUID().toString().replace("-", ""));
       cert.setCreatedAt(Instant.now());
@@ -130,9 +137,9 @@ public class PersonnelCertificateController {
     cert.setIdCardNo(ValidationUtils.assertOptionalString(payload.get("idCardNo")));
     cert.setCertificateType(ValidationUtils.assertEnum(payload.get("certificateType"), ApiConstants.PERSONNEL_CERTIFICATE_TYPES, "certificateType"));
     cert.setCertificateNo(ValidationUtils.assertString(payload.get("certificateNo"), "certificateNo"));
-    cert.setIssueDate(ValidationUtils.assertDate(payload.get("issueDate"), "issueDate"));
-    cert.setExpiryDate(ValidationUtils.assertDate(payload.get("expiryDate"), "expiryDate"));
-    cert.setStatus(ValidationUtils.assertEnum(payload.get("status"), ApiConstants.PERSONNEL_CERTIFICATE_STATUSES, "status"));
+    cert.setIssueDate(issueDate);
+    cert.setExpiryDate(expiryDate);
+    cert.setStatus(ApiSerializers.computePersonnelCertificateStatus(expiryDate));
     cert.setRemark(ValidationUtils.assertOptionalString(payload.get("remark")));
     return certificateRepository.save(cert);
   }
