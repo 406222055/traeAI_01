@@ -5,6 +5,7 @@ import com.contractorcontrol.api.repository.ComplianceItemRepository;
 import com.contractorcontrol.api.repository.PersonnelCertificateRepository;
 import com.contractorcontrol.api.repository.ProjectRepository;
 import com.contractorcontrol.api.repository.VendorRepository;
+import com.contractorcontrol.api.util.ApiSerializers;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
@@ -39,16 +40,16 @@ public class DashboardController {
   @GetMapping("/summary")
   public Map<String, Object> summary() {
     Instant now = Instant.now();
-    Instant within7 = now.plus(7, ChronoUnit.DAYS);
-    Instant within30 = now.plus(30, ChronoUnit.DAYS);
+    Instant within30 = now.plus(ApiSerializers.EXPIRING_SOON_DAYS, ChronoUnit.DAYS);
+    Instant farPast = Instant.ofEpochMilli(0);
     Map<String, Object> data = new LinkedHashMap<String, Object>();
     data.put("vendorCount", vendorRepository.count());
     data.put("projectCount", projectRepository.count());
     data.put("pendingAdmissionCount", admissionRepository.countByStatus("pending"));
-    data.put("expiringIn7DaysCount", complianceItemRepository.countByExpiryDateBetween(now, within7));
-    data.put("expiringIn30DaysCount", complianceItemRepository.countByExpiryDateBetween(now, within30));
-    data.put("personnelCertExpiringIn7DaysCount", personnelCertificateRepository.countByExpiryDateBetween(now, within7));
-    data.put("personnelCertExpiringIn30DaysCount", personnelCertificateRepository.countByExpiryDateBetween(now, within30));
+    data.put("complianceExpiredCount", complianceItemRepository.countByExpiryDateBetween(farPast, now.minusMillis(1)));
+    data.put("complianceExpiringSoonCount", complianceItemRepository.countByExpiryDateBetween(now, within30));
+    data.put("personnelCertExpiredCount", personnelCertificateRepository.countByExpiryDateBetween(farPast, now.minusMillis(1)));
+    data.put("personnelCertExpiringSoonCount", personnelCertificateRepository.countByExpiryDateBetween(now, within30));
     return data;
   }
 }

@@ -9,11 +9,13 @@ import com.contractorcontrol.api.repository.VendorRepository;
 import com.contractorcontrol.api.util.ApiConstants;
 import com.contractorcontrol.api.util.ApiSerializers;
 import com.contractorcontrol.api.util.ValidationUtils;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
@@ -24,6 +26,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -57,9 +60,6 @@ public class ComplianceItemController {
     if (projectId != null && !projectId.isEmpty()) {
       specification = specification.and((root, query, cb) -> cb.equal(root.get("project").get("id"), projectId));
     }
-    if (status != null && !status.isEmpty()) {
-      specification = specification.and((root, query, cb) -> cb.equal(root.get("status"), status));
-    }
     if (type != null && !type.isEmpty()) {
       specification = specification.and((root, query, cb) -> cb.equal(root.get("type"), type));
     }
@@ -69,14 +69,17 @@ public class ComplianceItemController {
           cb.like(root.get("name"), like),
           cb.like(root.get("remark"), like)));
     }
-    return complianceItemRepository.findAll(specification, Sort.by(Sort.Direction.ASC, "expiryDate"))
+    Stream<Map<String, Object>> stream = complianceItemRepository.findAll(specification, Sort.by(Sort.Direction.ASC, "expiryDate"))
         .stream()
-        .map(ApiSerializers::serializeComplianceItem)
-        .collect(Collectors.toList());
+        .map(ApiSerializers::serializeComplianceItem);
+    if (status != null && !status.isEmpty() && ApiConstants.COMPLIANCE_ITEM_STATUSES.contains(status)) {
+      stream = stream.filter(item -> status.equals(item.get("status")));
+    }
+    return stream.collect(Collectors.toList());
   }
 
   @PostMapping
-  @org.springframework.web.bind.annotation.ResponseStatus(HttpStatus.CREATED)
+  @ResponseStatus(HttpStatus.CREATED)
   public Map<String, Object> create(@RequestBody(required = false) Map<String, Object> body) {
     return ApiSerializers.serializeComplianceItem(saveItem(new ComplianceItemEntity(), body, true));
   }
@@ -99,6 +102,12 @@ public class ComplianceItemController {
           .orElseThrow(() -> new IllegalArgumentException("Invalid projectId"));
     }
 
+    Instant issueDate = ValidationUtils.assertDate(payload.get("issueDate"), "issueDate");
+    Instant expiryDate = ValidationUtils.assertDate(payload.get("expiryDate"), "expiryDate");
+    if (!expiryDate.isAfter(issueDate)) {
+      throw new IllegalArgumentException("到期日期必须晚于签发日期");
+    }
+
     if (create) {
       item.setId(UUID.randomUUID().toString().replace("-", ""));
     }
@@ -106,9 +115,9 @@ public class ComplianceItemController {
     item.setProject(project);
     item.setType(ValidationUtils.assertEnum(payload.get("type"), ApiConstants.COMPLIANCE_ITEM_TYPES, "type"));
     item.setName(ValidationUtils.assertString(payload.get("name"), "name"));
-    item.setIssueDate(ValidationUtils.assertDate(payload.get("issueDate"), "issueDate"));
-    item.setExpiryDate(ValidationUtils.assertDate(payload.get("expiryDate"), "expiryDate"));
-    item.setStatus(ValidationUtils.assertEnum(payload.get("status"), ApiConstants.COMPLIANCE_ITEM_STATUSES, "status"));
+    item.setIssueDate(issueDate);
+    item.setExpiryDate(expiryDate);
+    item.setStatus(ApiSerializers.computeComplianceItemStatus(expiryDate));
     item.setRemark(ValidationUtils.assertOptionalString(payload.get("remark")));
     return complianceItemRepository.save(item);
   }

@@ -8,7 +8,6 @@ export interface ComplianceItemPayload {
   name: string;
   issueDate: string;
   expiryDate: string;
-  status: string;
   remark?: string;
 }
 

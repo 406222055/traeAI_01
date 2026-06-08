@@ -27,17 +27,47 @@ export function DashboardPage() {
         <Col span={8}>
           <Card><Statistic title="待审核准入" value={summary?.pendingAdmissionCount ?? 0} /></Card>
         </Col>
-        <Col span={6}>
-          <Card><Statistic title="7 天内资质到期" value={summary?.expiringIn7DaysCount ?? 0} /></Card>
+      </Row>
+      <Typography.Title level={5} style={{ marginTop: 16 }}>资质 / 合同到期预警</Typography.Title>
+      <Row gutter={[16, 16]}>
+        <Col span={12}>
+          <Card style={{ borderColor: '#ffccc7' }}>
+            <Statistic
+              title="已过期"
+              value={summary?.complianceExpiredCount ?? 0}
+              valueStyle={{ color: '#cf1322' }}
+            />
+          </Card>
         </Col>
-        <Col span={6}>
-          <Card><Statistic title="30 天内资质到期" value={summary?.expiringIn30DaysCount ?? 0} /></Card>
+        <Col span={12}>
+          <Card style={{ borderColor: '#ffe7ba' }}>
+            <Statistic
+              title="30 天内即将到期"
+              value={summary?.complianceExpiringSoonCount ?? 0}
+              valueStyle={{ color: '#fa8c16' }}
+            />
+          </Card>
         </Col>
-        <Col span={6}>
-          <Card><Statistic title="7 天内证照到期" value={summary?.personnelCertExpiringIn7DaysCount ?? 0} valueStyle={{ color: '#cf1322' }} /></Card>
+      </Row>
+      <Typography.Title level={5} style={{ marginTop: 16 }}>人员证照到期预警</Typography.Title>
+      <Row gutter={[16, 16]}>
+        <Col span={12}>
+          <Card style={{ borderColor: '#ffccc7' }}>
+            <Statistic
+              title="已过期"
+              value={summary?.personnelCertExpiredCount ?? 0}
+              valueStyle={{ color: '#cf1322' }}
+            />
+          </Card>
         </Col>
-        <Col span={6}>
-          <Card><Statistic title="30 天内证照到期" value={summary?.personnelCertExpiringIn30DaysCount ?? 0} valueStyle={{ color: '#fa8c16' }} /></Card>
+        <Col span={12}>
+          <Card style={{ borderColor: '#ffe7ba' }}>
+            <Statistic
+              title="30 天内即将到期"
+              value={summary?.personnelCertExpiringSoonCount ?? 0}
+              valueStyle={{ color: '#fa8c16' }}
+            />
+          </Card>
         </Col>
       </Row>
     </>

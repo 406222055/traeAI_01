@@ -26,7 +26,22 @@ public final class ApiSerializers {
     return instant == null ? null : ISO_FORMATTER.format(instant);
   }
 
-  public static final int PERSONNEL_CERT_EXPIRING_SOON_DAYS = 30;
+  public static final int EXPIRING_SOON_DAYS = 30;
+
+  public static String computeComplianceItemStatus(Instant expiryDate) {
+    if (expiryDate == null) {
+      return "expired";
+    }
+    Instant now = Instant.now();
+    if (expiryDate.isBefore(now)) {
+      return "expired";
+    }
+    Instant threshold = now.plus(EXPIRING_SOON_DAYS, ChronoUnit.DAYS);
+    if (!expiryDate.isAfter(threshold)) {
+      return "expiring_soon";
+    }
+    return "active";
+  }
 
   public static String computePersonnelCertificateStatus(Instant expiryDate) {
     if (expiryDate == null) {
@@ -36,7 +51,7 @@ public final class ApiSerializers {
     if (expiryDate.isBefore(now)) {
       return "expired";
     }
-    Instant threshold = now.plus(PERSONNEL_CERT_EXPIRING_SOON_DAYS, ChronoUnit.DAYS);
+    Instant threshold = now.plus(EXPIRING_SOON_DAYS, ChronoUnit.DAYS);
     if (!expiryDate.isAfter(threshold)) {
       return "expiring_soon";
     }
@@ -107,7 +122,7 @@ public final class ApiSerializers {
     data.put("name", item.getName());
     data.put("issueDate", formatInstant(item.getIssueDate()));
     data.put("expiryDate", formatInstant(item.getExpiryDate()));
-    data.put("status", item.getStatus());
+    data.put("status", computeComplianceItemStatus(item.getExpiryDate()));
     data.put("remark", item.getRemark());
     data.put("vendor", serializeVendor(item.getVendor()));
     data.put("project", item.getProject() == null ? null : serializeProject(item.getProject()));

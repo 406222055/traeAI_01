@@ -30,14 +30,14 @@ public class AlertController {
   @GetMapping("/expiring")
   public Map<String, Object> expiring() {
     Instant now = Instant.now();
-    Instant within7 = now.plus(7, ChronoUnit.DAYS);
-    Instant within30 = now.plus(30, ChronoUnit.DAYS);
+    Instant within30 = now.plus(ApiSerializers.EXPIRING_SOON_DAYS, ChronoUnit.DAYS);
+    Instant farPast = Instant.ofEpochMilli(0);
     Sort sort = Sort.by(Sort.Direction.ASC, "expiryDate");
     Map<String, Object> data = new LinkedHashMap<String, Object>();
-    data.put("within7Days", complianceItemRepository.findByExpiryDateBetween(now, within7, sort).stream().map(ApiSerializers::serializeComplianceItem).collect(Collectors.toList()));
-    data.put("within30Days", complianceItemRepository.findByExpiryDateBetween(now, within30, sort).stream().map(ApiSerializers::serializeComplianceItem).collect(Collectors.toList()));
-    data.put("personnelWithin7Days", personnelCertificateRepository.findByExpiryDateBetween(now, within7, sort).stream().map(ApiSerializers::serializePersonnelCertificate).collect(Collectors.toList()));
-    data.put("personnelWithin30Days", personnelCertificateRepository.findByExpiryDateBetween(now, within30, sort).stream().map(ApiSerializers::serializePersonnelCertificate).collect(Collectors.toList()));
+    data.put("expiredItems", complianceItemRepository.findByExpiryDateBetween(farPast, now.minusMillis(1), sort).stream().map(ApiSerializers::serializeComplianceItem).collect(Collectors.toList()));
+    data.put("expiringSoonItems", complianceItemRepository.findByExpiryDateBetween(now, within30, sort).stream().map(ApiSerializers::serializeComplianceItem).collect(Collectors.toList()));
+    data.put("expiredPersonnelCerts", personnelCertificateRepository.findByExpiryDateBetween(farPast, now.minusMillis(1), sort).stream().map(ApiSerializers::serializePersonnelCertificate).collect(Collectors.toList()));
+    data.put("expiringSoonPersonnelCerts", personnelCertificateRepository.findByExpiryDateBetween(now, within30, sort).stream().map(ApiSerializers::serializePersonnelCertificate).collect(Collectors.toList()));
     return data;
   }
 }

@@ -18,7 +18,7 @@ export type AdmissionStatus = (typeof ADMISSION_STATUSES)[number];
 export const COMPLIANCE_ITEM_TYPES = ['qualification', 'contract', 'insurance', 'safety', 'other'] as const;
 export type ComplianceItemType = (typeof COMPLIANCE_ITEM_TYPES)[number];
 
-export const COMPLIANCE_ITEM_STATUSES = ['active', 'expired'] as const;
+export const COMPLIANCE_ITEM_STATUSES = ['active', 'expiring_soon', 'expired'] as const;
 export type ComplianceItemStatus = (typeof COMPLIANCE_ITEM_STATUSES)[number];
 
 export const PERSONNEL_CERTIFICATE_TYPES = [
@@ -123,15 +123,15 @@ export interface DashboardSummary {
   vendorCount: number;
   projectCount: number;
   pendingAdmissionCount: number;
-  expiringIn7DaysCount: number;
-  expiringIn30DaysCount: number;
-  personnelCertExpiringIn7DaysCount: number;
-  personnelCertExpiringIn30DaysCount: number;
+  complianceExpiredCount: number;
+  complianceExpiringSoonCount: number;
+  personnelCertExpiredCount: number;
+  personnelCertExpiringSoonCount: number;
 }
 
 export interface ExpiringAlertsResponse {
-  within7Days: ComplianceItem[];
-  within30Days: ComplianceItem[];
-  personnelWithin7Days: PersonnelCertificate[];
-  personnelWithin30Days: PersonnelCertificate[];
+  expiredItems: ComplianceItem[];
+  expiringSoonItems: ComplianceItem[];
+  expiredPersonnelCerts: PersonnelCertificate[];
+  expiringSoonPersonnelCerts: PersonnelCertificate[];
 }
